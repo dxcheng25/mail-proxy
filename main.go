@@ -19,8 +19,9 @@ var (
 )
 
 const (
-	SmtpPublicPort = 587
-	ImapPublicPort = 993
+	SmtpSslPublicPort = 587
+	SmtpPublicPort    = 25
+	ImapPublicPort    = 993
 )
 
 func acceptConnections(l net.Listener, handler func(net.Conn)) {
@@ -39,7 +40,7 @@ func handleImapConnection(c net.Conn) {
 	forwardTraffic(c, fmt.Sprintf("%s:%d", *mailBackendAddr, *imapPrivatePort))
 }
 
-func handleSmptConnection(c net.Conn) {
+func handleSmtpConnection(c net.Conn) {
 	forwardTraffic(c, fmt.Sprintf("%s:%d", *mailBackendAddr, *smtpPrivatePort))
 }
 
@@ -81,6 +82,12 @@ func main() {
 	}
 	defer smtp.Close()
 
+	smtpssl, err := tls.Listen("tcp4", fmt.Sprintf(":%d", SmtpSslPublicPort), tlsconf)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer smtp.Close()
+
 	imap, err := tls.Listen("tcp4", fmt.Sprintf(":%d", ImapPublicPort), tlsconf)
 	if err != nil {
 		log.Fatal(err)
@@ -88,7 +95,8 @@ func main() {
 	defer imap.Close()
 
 	donec := make(chan bool, 1)
-	go acceptConnections(smtp, handleSmptConnection)
+	go acceptConnections(smtp, handleSmtpConnection)
+	go acceptConnections(smtpssl, handleSmtpConnection)
 	go acceptConnections(imap, handleImapConnection)
 	<-donec
 }
