@@ -37,11 +37,11 @@ func acceptConnections(l net.Listener, handler func(net.Conn)) {
 }
 
 func handleImapConnection(c net.Conn) {
-	forwardTraffic(c, fmt.Sprintf("%s:%d", *mailBackendAddr, imapPrivatePort))
+	forwardTraffic(c, fmt.Sprintf("%s:%d", *mailBackendAddr, *imapPrivatePort))
 }
 
 func handleSmptConnection(c net.Conn) {
-	forwardTraffic(c, fmt.Sprintf("%s:%d", *mailBackendAddr, smtpPrivatePort))
+	forwardTraffic(c, fmt.Sprintf("%s:%d", *mailBackendAddr, *smtpPrivatePort))
 }
 
 func forwardTraffic(src net.Conn, dstaddr string) {
