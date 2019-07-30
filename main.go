@@ -30,9 +30,8 @@ func acceptConnections(l net.Listener, handler func(net.Conn)) {
 			log.Println(err)
 			return
 		}
-		defer c.Close()
 		log.Printf("Client: %s connected to %s.", c.RemoteAddr(), c.LocalAddr())
-		handler(c)
+		go handler(c)
 	}
 }
 
@@ -45,6 +44,7 @@ func handleSmptConnection(c net.Conn) {
 }
 
 func forwardTraffic(src net.Conn, dstaddr string) {
+	defer src.Close()
 	dst, err := net.Dial("tcp", dstaddr)
 	if err != nil {
 		log.Printf("Unable to connect to mail backend: %s, err: %v", *mailBackendAddr, err)
