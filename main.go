@@ -67,6 +67,8 @@ func copyPayload(errc chan<- error, src, dst net.Conn) {
 }
 
 func main() {
+	flag.Parse()
+
 	cert, err := tls.LoadX509KeyPair(*sslCert, *sslCertKey)
 	if err != nil {
 		log.Fatal(err)
