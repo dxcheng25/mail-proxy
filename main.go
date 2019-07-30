@@ -76,7 +76,7 @@ func main() {
 	}
 	tlsconf := &tls.Config{Certificates: []tls.Certificate{cert}}
 
-	smtp, err := net.Listen("tcp4", fmt.Sprintf(":%d", SmtpPublicPort))
+	smtp, err := tls.Listen("tcp4", fmt.Sprintf(":%d", SmtpPublicPort), tlsconf)
 	if err != nil {
 		log.Fatal(err)
 	}
