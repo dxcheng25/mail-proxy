@@ -31,6 +31,7 @@ func acceptConnections(l net.Listener, handler func(net.Conn)) {
 			return
 		}
 		defer c.Close()
+		log.Printf("Client: %s connected to %s.", c.RemoteAddr(), c.LocalAddr())
 		handler(c)
 	}
 }
@@ -40,7 +41,7 @@ func handleImapConnection(c net.Conn) {
 }
 
 func handleSmptConnection(c net.Conn) {
-
+	forwardTraffic(c, fmt.Sprintf("%s:%d", *mailBackendAddr, smtpPrivatePort))
 }
 
 func forwardTraffic(src net.Conn, dstaddr string) {
@@ -51,6 +52,7 @@ func forwardTraffic(src net.Conn, dstaddr string) {
 	}
 	defer dst.Close()
 
+	log.Printf("Forwarding traffic from %s to %s.", src.RemoteAddr(), dst.RemoteAddr())
 	errc := make(chan error, 1)
 	go copyPayload(errc, src, dst)
 	go copyPayload(errc, dst, src)
