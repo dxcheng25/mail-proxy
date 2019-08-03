@@ -77,7 +77,7 @@ func (sc *SmtpConn) Read(p []byte) (int, error) {
 	if strippedbuf.Len() > 0 && *verbose {
 		log.Printf("Read traffic from %s, payload: %s", sc.conn.RemoteAddr(), strippedbuf.String())
 	}
-	p = strippedbuf.Bytes()
+	copy(p, strippedbuf.Bytes())
 	return len(p), nil
 }
 
