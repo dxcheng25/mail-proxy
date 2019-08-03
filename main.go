@@ -52,7 +52,7 @@ type PrintingConn struct {
 func (pc *PrintingConn) Read(p []byte) (int, error) {
 	n, err := pc.conn.Read(p)
 	if n > 0 && *verbose {
-		log.Printf("Read traffic payload: %s", p)
+		log.Printf("Read traffic from %s, payload: %s", pc.conn.RemoteAddr(), p)
 	}
 	return n, err
 }
@@ -60,7 +60,7 @@ func (pc *PrintingConn) Read(p []byte) (int, error) {
 func (pc *PrintingConn) Write(p []byte) (int, error) {
 	n, err := pc.conn.Write(p)
 	if n > 0 && *verbose {
-		log.Printf("Wrote traffic payload: %s", p)
+		log.Printf("Wrote traffic to %s, payload: %s", pc.conn.RemoteAddr(), p)
 	}
 	return n, err
 }
