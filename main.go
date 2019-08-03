@@ -68,7 +68,7 @@ func (sc *SmtpConn) ReadLine() (string, error) {
 func (sc *SmtpConn) Read(p []byte) (int, error) {
 	var buf []byte
 	n, err := sc.conn.Read(buf)
-	if err != nil {
+	if err != nil || n == 0 {
 		return n, err
 	}
 
