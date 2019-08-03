@@ -73,7 +73,9 @@ func (sc *SmtpConn) Read(p []byte) (int, error) {
 	}
 
 	r := bytes.NewBuffer(buf)
+	w := bytes.NewBuffer(p)
 	for line, err := r.ReadString('\n'); err == nil; {
+		log.Printf("Read line: %s", line)
 		if line == "250-STARTTLS" {
 			log.Printf("Received STARTTLS, upgrading connection to TLS.")
 			w := bufio.NewWriter(sc.conn)
@@ -82,7 +84,7 @@ func (sc *SmtpConn) Read(p []byte) (int, error) {
 			w.Flush()
 			sc.conn = tls.Server(sc.conn, getTLSConfig())
 		} else {
-			p = append(p, line...)
+			w.WriteString(line + "\n")
 		}
 	}
 	if len(p) > 0 && *verbose {
