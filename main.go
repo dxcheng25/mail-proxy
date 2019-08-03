@@ -51,16 +51,16 @@ type PrintingConn struct {
 
 func (pc *PrintingConn) Read(p []byte) (int, error) {
 	n, err := pc.conn.Read(p)
-	if *verbose {
-		log.Printf("Read traffic payload: %v", p)
+	if n > 0 && *verbose {
+		log.Printf("Read traffic payload: %s", p)
 	}
 	return n, err
 }
 
 func (pc *PrintingConn) Write(p []byte) (int, error) {
 	n, err := pc.conn.Write(p)
-	if *verbose {
-		log.Printf("Wrote traffic payload: %v", p)
+	if n > 0 && *verbose {
+		log.Printf("Wrote traffic payload: %s", p)
 	}
 	return n, err
 }
