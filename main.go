@@ -51,22 +51,8 @@ type SmtpConn struct {
 	conn net.Conn
 }
 
-func (sc *SmtpConn) ReadLine() (string, error) {
-	var (
-		isPrefix bool  = true
-		err      error = nil
-		line, ln []byte
-	)
-	r := bufio.NewReader(sc.conn)
-	for isPrefix && err == nil {
-		line, isPrefix, err = r.ReadLine()
-		ln = append(ln, line...)
-	}
-	return string(ln), err
-}
-
 func (sc *SmtpConn) Read(p []byte) (int, error) {
-	var buf []byte
+	buf := make([]byte, 1024)
 	n, err := sc.conn.Read(buf)
 	if err != nil || n == 0 {
 		return n, err
