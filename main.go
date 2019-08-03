@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io"
@@ -45,22 +46,49 @@ func handleSmtpConnection(c net.Conn) {
 	forwardTraffic(c, fmt.Sprintf("%s:%d", *mailBackendAddr, *smtpPrivatePort))
 }
 
-type PrintingConn struct {
+type SmtpConn struct {
 	conn net.Conn
 }
 
-func (pc *PrintingConn) Read(p []byte) (int, error) {
-	n, err := pc.conn.Read(p)
-	if n > 0 && *verbose {
-		log.Printf("Read traffic from %s, payload: %s", pc.conn.RemoteAddr(), p)
+func (sc *SmtpConn) ReadLine() (string, error) {
+	var (
+		isPrefix bool  = true
+		err      error = nil
+		line, ln []byte
+	)
+	r := bufio.NewReader(sc.conn)
+	for isPrefix && err == nil {
+		line, isPrefix, err = r.ReadLine()
+		ln = append(ln, line...)
 	}
-	return n, err
+	return string(ln), err
 }
 
-func (pc *PrintingConn) Write(p []byte) (int, error) {
-	n, err := pc.conn.Write(p)
+func (sc *SmtpConn) Read(p []byte) (int, error) {
+	line, err := sc.ReadLine()
+	if err != nil {
+		return 0, err
+	}
+	if line == "250-STARTTLS" {
+		log.Printf("Received STARTTLS, upgrading connection to TLS.")
+		w := bufio.NewWriter(sc.conn)
+		w.WriteString("STARTTLS\n")
+		w.WriteString("220 2.0.0 Ready to start TLS\n")
+		w.Flush()
+		sc.conn = tls.Server(sc.conn, getTLSConfig())
+	} else {
+		p = append(p, line...)
+	}
+	if len(p) > 0 && *verbose {
+		log.Printf("Read traffic from %s, payload: %s", sc.conn.RemoteAddr(), p)
+	}
+	return len(p), nil
+}
+
+func (sc *SmtpConn) Write(p []byte) (int, error) {
+	n, err := sc.conn.Write(p)
 	if n > 0 && *verbose {
-		log.Printf("Wrote traffic to %s, payload: %s", pc.conn.RemoteAddr(), p)
+		log.Printf("Wrote traffic to %s, payload: %s", sc.conn.RemoteAddr(), p)
 	}
 	return n, err
 }
@@ -75,8 +103,8 @@ func forwardTraffic(src net.Conn, dstaddr string) {
 	defer dst.Close()
 
 	log.Printf("Forwarding traffic from %s to %s.", src.RemoteAddr(), dst.RemoteAddr())
-	psrc := &PrintingConn{conn: src}
-	pdst := &PrintingConn{conn: dst}
+	psrc := &SmtpConn{conn: src}
+	pdst := &SmtpConn{conn: dst}
 	errc := make(chan error, 1)
 	go copyPayload(errc, psrc, pdst)
 	go copyPayload(errc, pdst, psrc)
@@ -85,7 +113,7 @@ func forwardTraffic(src net.Conn, dstaddr string) {
 	<-errc
 }
 
-func copyPayload(errc chan<- error, src, dst *PrintingConn) {
+func copyPayload(errc chan<- error, src, dst *SmtpConn) {
 	_, err := io.Copy(dst, src)
 	if err != nil {
 		log.Printf("io.Copy from %s to %s returned with error: %v", src.conn.RemoteAddr(), dst.conn.RemoteAddr(), err)
@@ -93,16 +121,19 @@ func copyPayload(errc chan<- error, src, dst *PrintingConn) {
 	errc <- err
 }
 
-func main() {
-	flag.Parse()
-
+func getTLSConfig() *tls.Config {
 	cert, err := tls.LoadX509KeyPair(*sslCert, *sslCertKey)
 	if err != nil {
 		log.Fatal(err)
 	}
-	tlsconf := &tls.Config{Certificates: []tls.Certificate{cert}}
+	return &tls.Config{Certificates: []tls.Certificate{cert}}
+}
 
-	smtp, err := tls.Listen("tcp4", fmt.Sprintf(":%d", SmtpPublicPort), tlsconf)
+func main() {
+	flag.Parse()
+
+	tlsconf := getTLSConfig()
+	smtp, err := net.Listen("tcp4", fmt.Sprintf(":%d", SmtpPublicPort))
 	if err != nil {
 		log.Fatal(err)
 	}
