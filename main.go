@@ -60,7 +60,7 @@ func (sc *SmtpConn) Read(p []byte) (int, error) {
 
 	scanner := bufio.NewScanner(bytes.NewReader(buf))
 	scanner.Split(bufio.ScanLines)
-	w := bytes.NewBuffer(p)
+	strippedbuf := new(bytes.Buffer)
 	for scanner.Scan() {
 		line := scanner.Text()
 		log.Printf("Read line: %s", line)
@@ -69,15 +69,15 @@ func (sc *SmtpConn) Read(p []byte) (int, error) {
 			w := bufio.NewWriter(sc.conn)
 			w.WriteString("STARTTLS\n")
 			w.WriteString("220 2.0.0 Ready to start TLS\n")
-			w.Flush()
 			sc.conn = tls.Server(sc.conn, getTLSConfig())
 		} else {
-			w.WriteString(line + "\n")
+			strippedbuf.WriteString(line + "\n")
 		}
 	}
-	if len(p) > 0 && *verbose {
-		log.Printf("Read traffic from %s, payload: %s", sc.conn.RemoteAddr(), p)
+	if strippedbuf.Len() > 0 && *verbose {
+		log.Printf("Read traffic from %s, payload: %s", sc.conn.RemoteAddr(), strippedbuf.String())
 	}
+	p = strippedbuf.Bytes()
 	return len(p), nil
 }
 
