@@ -64,6 +64,9 @@ func forwardTraffic(src net.Conn, dstaddr string) {
 
 func copyPayload(errc chan<- error, src, dst net.Conn) {
 	_, err := io.Copy(dst, src)
+	if err != nil {
+		log.Printf("io.Copy from %s to %s returned with error: %v", src.RemoteAddr(), dst.RemoteAddr(), err)
+	}
 	errc <- err
 }
 
