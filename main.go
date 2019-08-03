@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -65,19 +66,24 @@ func (sc *SmtpConn) ReadLine() (string, error) {
 }
 
 func (sc *SmtpConn) Read(p []byte) (int, error) {
-	line, err := sc.ReadLine()
+	var buf []byte
+	n, err := sc.conn.Read(buf)
 	if err != nil {
-		return 0, err
+		return n, err
 	}
-	if line == "250-STARTTLS" {
-		log.Printf("Received STARTTLS, upgrading connection to TLS.")
-		w := bufio.NewWriter(sc.conn)
-		w.WriteString("STARTTLS\n")
-		w.WriteString("220 2.0.0 Ready to start TLS\n")
-		w.Flush()
-		sc.conn = tls.Server(sc.conn, getTLSConfig())
-	} else {
-		p = append(p, line...)
+
+	r := bytes.NewBuffer(buf)
+	for line, err := r.ReadString('\n'); err == nil; {
+		if line == "250-STARTTLS" {
+			log.Printf("Received STARTTLS, upgrading connection to TLS.")
+			w := bufio.NewWriter(sc.conn)
+			w.WriteString("STARTTLS\n")
+			w.WriteString("220 2.0.0 Ready to start TLS\n")
+			w.Flush()
+			sc.conn = tls.Server(sc.conn, getTLSConfig())
+		} else {
+			p = append(p, line...)
+		}
 	}
 	if len(p) > 0 && *verbose {
 		log.Printf("Read traffic from %s, payload: %s", sc.conn.RemoteAddr(), p)
