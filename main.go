@@ -16,6 +16,7 @@ var (
 	imapPrivatePort = flag.Int("imap_private_port", 143, "Port for forwarding IMAP requests.")
 	sslCertKey      = flag.String("ssl_cert_key", "", "Path to the certificate key file.")
 	sslCert         = flag.String("ssl_cert", "", "Path to the certificate file.")
+	verbose         = flag.Bool("verbose", false, "If set to true, print out all traffic payloads for debugging.")
 )
 
 const (
@@ -44,6 +45,26 @@ func handleSmtpConnection(c net.Conn) {
 	forwardTraffic(c, fmt.Sprintf("%s:%d", *mailBackendAddr, *smtpPrivatePort))
 }
 
+type PrintingConn struct {
+	conn net.Conn
+}
+
+func (pc *PrintingConn) Read(p []byte) (int, error) {
+	n, err := pc.conn.Read(p)
+	if *verbose {
+		log.Printf("Read traffic payload: %v", p)
+	}
+	return n, err
+}
+
+func (pc *PrintingConn) Write(p []byte) (int, error) {
+	n, err := pc.conn.Write(p)
+	if *verbose {
+		log.Printf("Wrote traffic payload: %v", p)
+	}
+	return n, err
+}
+
 func forwardTraffic(src net.Conn, dstaddr string) {
 	defer src.Close()
 	dst, err := net.Dial("tcp", dstaddr)
@@ -54,19 +75,20 @@ func forwardTraffic(src net.Conn, dstaddr string) {
 	defer dst.Close()
 
 	log.Printf("Forwarding traffic from %s to %s.", src.RemoteAddr(), dst.RemoteAddr())
+	psrc := &PrintingConn{conn: src}
+	pdst := &PrintingConn{conn: dst}
 	errc := make(chan error, 1)
-	go copyPayload(errc, src, dst)
-	go copyPayload(errc, dst, src)
+	go copyPayload(errc, psrc, pdst)
+	go copyPayload(errc, pdst, psrc)
 
 	// Blocks until the first error / EOF.
 	<-errc
 }
 
-func copyPayload(errc chan<- error, src, dst net.Conn) {
-	buf := make([]byte, 4)
-	_, err := io.CopyBuffer(dst, src, buf)
+func copyPayload(errc chan<- error, src, dst *PrintingConn) {
+	_, err := io.Copy(dst, src)
 	if err != nil {
-		log.Printf("io.Copy from %s to %s returned with error: %v", src.RemoteAddr(), dst.RemoteAddr(), err)
+		log.Printf("io.Copy from %s to %s returned with error: %v", src.conn.RemoteAddr(), dst.conn.RemoteAddr(), err)
 	}
 	errc <- err
 }
