@@ -58,9 +58,11 @@ func (sc *SmtpConn) Read(p []byte) (int, error) {
 		return n, err
 	}
 
-	r := bytes.NewBuffer(buf)
+	scanner := bufio.NewScanner(bytes.NewReader(buf))
+	scanner.Split(bufio.ScanLines)
 	w := bytes.NewBuffer(p)
-	for line, err := r.ReadString('\n'); err == nil; {
+	for scanner.Scan() {
+		line := scanner.Text()
 		log.Printf("Read line: %s", line)
 		if line == "250-STARTTLS" {
 			log.Printf("Received STARTTLS, upgrading connection to TLS.")
