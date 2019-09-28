@@ -14,17 +14,17 @@ import (
 
 var (
 	mailBackendAddr = flag.String("mail_backend_addr", "", "Address of the mail server backend that accepts forwarded requests.")
-	smtpPrivatePort = flag.Int("smtp_private_port", 25, "Port for forwarding SMTP requests.")
-	imapPrivatePort = flag.Int("imap_private_port", 143, "Port for forwarding IMAP requests.")
+	smtpdRelayPort = flag.Int("smtpd_relay_port", 25, "Port for forwarding SMTP requests.")
+	imapRelayPort = flag.Int("imap_relay_port", 143, "Port for forwarding IMAP requests.")
 	sslCertKey      = flag.String("ssl_cert_key", "", "Path to the certificate key file.")
 	sslCert         = flag.String("ssl_cert", "", "Path to the certificate file.")
 	verbose         = flag.Bool("verbose", false, "If set to true, print out all traffic payloads for debugging.")
 )
 
 const (
-	SmtpSslPublicPort = 587
-	SmtpPublicPort    = 25
-	ImapPublicPort    = 993
+	SubmissionPort = 587
+	SmtpdPort    = 25
+	ImapPort    = 993
 )
 
 func acceptConnections(l net.Listener, handler func(net.Conn)) {
@@ -63,7 +63,6 @@ func (sc *SmtpConn) Read(p []byte) (int, error) {
 	strippedbuf := new(bytes.Buffer)
 	for scanner.Scan() {
 		line := scanner.Text()
-		log.Printf("Read line: %s", line)
 		if line == "250-STARTTLS" {
 			log.Printf("Received STARTTLS, upgrading connection to TLS.")
 			w := bufio.NewWriter(sc.conn)
